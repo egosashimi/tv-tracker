@@ -1,0 +1,317 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>TV Log</title>
+  <meta name="description" content="A minimalist, private TV show log. Everything stays on your device.">
+  <meta name="theme-color" content="#f6f5f2" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#111111" media="(prefers-color-scheme: dark)">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="TV Log">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="format-detection" content="telephone=no">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icons/icon-180.png">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="top">
+    <div class="title-wrap">
+      <h1><button id="modeBtn" type="button" class="mode-btn" aria-haspopup="menu" aria-expanded="false" aria-controls="modeMenu"><span data-t="title">TV Log</span><svg class="chev" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="m6 9.5 6 6 6-6" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button></h1>
+      <p id="summary" class="muted"></p>
+      <div id="modeMenu" class="mode-menu" role="menu" aria-label="Switch log" hidden>
+        <button type="button" role="menuitemradio" data-mode="tv" aria-checked="true">
+          <span class="mm-icon"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="m8.5 3 3.5 3.5L15.5 3"/><rect x="3" y="6.5" width="18" height="13.5" rx="3"/></g></svg></span>
+          <span class="mm-text"><strong>TV Log</strong><small>TV shows<span class="mm-count"></span></small></span>
+          <svg class="mm-check" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+        <button type="button" role="menuitemradio" data-mode="manga" aria-checked="false">
+          <span class="mm-icon"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5.5c3-1.3 6-1.3 9 .7 3-2 6-2 9-.7v13c-3-1.3-6-1.3-9 .7-3-2-6-2-9-.7Z"/><path d="M12 6.2v13"/></g></svg></span>
+          <span class="mm-text"><strong>Manga Log</strong><small>Manga, manhwa &amp; manhua<span class="mm-count"></span></small></span>
+          <svg class="mm-check" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+        <div class="pf-section">
+          <p class="pf-label" id="pfLabel">Profiles</p>
+          <div id="pfList"></div>
+          <button type="button" class="pf-new" data-act="new-profile"><span class="pf-plus" aria-hidden="true">+</span>New profile</button>
+        </div>
+      </div>
+    </div>
+    <div class="top-actions">
+      <button id="statsBtn" class="icon-btn" type="button" aria-label="Stats">
+        <svg viewBox="0 0 24 24" width="21" height="21" aria-hidden="true"><path d="M5 20V11M12 20V4M19 20v-6" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"/></svg>
+      </button>
+      <button id="menuBtn" class="icon-btn" type="button" aria-label="Import and export">
+        <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M12 3v12m0 0-4.5-4.5M12 15l4.5-4.5M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <div class="controls" id="controls">
+    <div class="seg" id="tabSeg" role="group" aria-label="View">
+      <button type="button" data-tab="log">Log</button>
+      <button type="button" data-tab="want"><span data-t="listName">Watchlist</span> <span id="wantCount" class="count"></span></button>
+    </div>
+    <div class="search-row">
+      <input id="search" type="search" placeholder="Search" autocomplete="off" autocorrect="off" spellcheck="false" enterkeyhint="search">
+      <select id="sortSel" aria-label="Sort">
+        <option value="recent">Recent</option>
+        <option value="rating">Rating</option>
+        <option value="name">A–Z</option>
+      </select>
+    </div>
+  </div>
+
+  <div id="nudge" class="nudge" hidden>
+    <p id="nudgeText"></p>
+    <div class="nudge-actions">
+      <button type="button" class="link" id="nudgeLater">Later</button>
+      <button type="button" class="btn primary sm" id="nudgeBackup">Back up</button>
+    </div>
+  </div>
+
+  <main id="list" aria-live="polite"></main>
+
+  <section id="empty" class="empty" hidden>
+    <p class="empty-title">Nothing logged yet</p>
+    <p class="muted" data-t="emptyText"></p>
+    <button type="button" class="btn ghost" id="emptyImport">Import a list</button>
+  </section>
+
+  <nav class="bar">
+    <button type="button" class="pill" id="askGpt">Ask ChatGPT</button>
+    <button type="button" class="pill" id="askClaude">Ask Claude</button>
+    <button type="button" class="fab" id="addBtn" aria-label="Add show">
+      <svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true"><path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>
+    </button>
+  </nav>
+
+  <!-- Add / edit sheet -->
+  <dialog id="showSheet" class="sheet">
+    <form id="showForm" novalidate>
+      <div class="sheet-head">
+        <button type="button" class="link" data-close>Cancel</button>
+        <h2 id="showSheetTitle">Add show</h2>
+        <button type="submit" class="link strong">Save</button>
+      </div>
+      <div class="sheet-body">
+        <div class="field">
+          <label class="label" for="fName" data-t="item">Show</label>
+          <div class="name-wrap">
+            <input id="fName" name="name" type="text" data-tp="namePh" placeholder="e.g. Severance" autocomplete="off" autocorrect="off" autocapitalize="words" enterkeyhint="done" required>
+            <div id="suggest" class="suggest" role="listbox" aria-label="Suggestions" hidden></div>
+          </div>
+          <div id="matchRow" class="match" hidden>
+            <img id="matchImg" alt="" referrerpolicy="no-referrer">
+            <span id="matchText"></span>
+            <button type="button" id="matchClear" class="match-x" aria-label="Remove match">×</button>
+          </div>
+        </div>
+
+        <div class="field" id="kindField" hidden>
+          <span class="label">Type <span class="opt">optional</span></span>
+          <div class="seg seg-sm" id="kindSeg" role="group" aria-label="Type">
+            <button type="button" data-kind="manga">Manga</button>
+            <button type="button" data-kind="manhwa">Manhwa</button>
+            <button type="button" data-kind="manhua">Manhua</button>
+            <button type="button" data-kind="comic">Comic</button>
+          </div>
+          <p class="hint muted">Manga is Japanese, manhwa Korean, manhua Chinese; Comic is for webcomics and everything else. Picking a suggestion fills this in.</p>
+        </div>
+
+        <div class="field">
+          <span class="label">Status</span>
+          <div class="seg seg-sm" id="statusSeg" role="group" aria-label="Status">
+            <button type="button" data-status="finished">Finished</button>
+            <button type="button" data-status="watching">Watching</button>
+            <button type="button" data-status="paused">Paused</button>
+            <button type="button" data-status="dropped">Dropped</button>
+            <button type="button" data-status="want">Want</button>
+          </div>
+          <p id="statusHint" class="hint muted"></p>
+        </div>
+
+        <div class="field" data-hide-want>
+          <div class="label-row">
+            <span class="label">Rating</span>
+            <span class="rating-meta">
+              <span id="ratingLabel" class="muted"></span>
+              <button type="button" id="halfBtn" class="chip" aria-pressed="false" aria-label="Add half a point">+½</button>
+            </span>
+          </div>
+          <div class="rating" id="ratingGrid" role="group" aria-label="Rating out of 10"></div>
+        </div>
+
+        <div class="field" data-hide-want>
+          <span class="label" data-t="dateLabel">Watched</span>
+          <div class="seg seg-sm" id="dateSeg" role="group" aria-label="Date precision">
+            <button type="button" data-mode="day">Day</button>
+            <button type="button" data-mode="month">Month</button>
+            <button type="button" data-mode="year">Year</button>
+            <button type="button" data-mode="range">Range</button>
+            <button type="button" data-mode="none">Not sure</button>
+          </div>
+          <div class="date-panel" data-panel="day"><input id="dDay" type="date" aria-label="Date watched"></div>
+          <div class="date-panel" data-panel="month"><input id="dMonth" type="month" placeholder="YYYY-MM" aria-label="Month watched"></div>
+          <div class="date-panel" data-panel="year"><input id="dYear" type="text" inputmode="numeric" placeholder="2024" maxlength="7" aria-label="Year watched"></div>
+          <div class="date-panel range" data-panel="range">
+            <input id="dFrom" type="text" inputmode="numeric" placeholder="From  2019" maxlength="7" aria-label="From year">
+            <span class="muted">to</span>
+            <input id="dTo" type="text" inputmode="numeric" placeholder="To  2021" maxlength="7" aria-label="To year">
+          </div>
+          <p class="date-panel hint muted" data-panel="none">No date — that's fine.</p>
+        </div>
+
+        <div class="field" data-hide-want>
+          <label class="label" for="fSeasons"><span data-t="progressLabel">Seasons</span> <span class="opt">optional</span></label>
+          <input id="fSeasons" type="text" data-tp="progressPh" placeholder="e.g. S1–S3, or all of it" autocomplete="off">
+        </div>
+
+        <div class="field">
+          <label class="label" for="fNote">Note <span class="opt">optional</span></label>
+          <textarea id="fNote" class="note" rows="2" placeholder="What you thought, who recommended it…"></textarea>
+        </div>
+
+        <button type="button" class="btn danger" id="deleteBtn" hidden>Delete</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Profile sheet -->
+  <dialog id="profileSheet" class="sheet">
+    <form id="profileForm" novalidate>
+      <div class="sheet-head">
+        <button type="button" class="link" data-close>Cancel</button>
+        <h2 id="profileTitle">New profile</h2>
+        <button type="submit" class="link strong">Save</button>
+      </div>
+      <div class="sheet-body">
+        <div class="field">
+          <label class="label" for="pName">Name</label>
+          <input id="pName" type="text" maxlength="40" placeholder="e.g. Manhwa" autocomplete="off" autocapitalize="words" enterkeyhint="done">
+          <p class="hint muted" id="profileHint"></p>
+        </div>
+        <button type="button" class="btn danger" id="profileDelete" hidden>Delete profile</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Ask an AI sheet -->
+  <dialog id="askSheet" class="sheet">
+    <div class="sheet-head">
+      <button type="button" class="link" data-close>Cancel</button>
+      <h2 id="askTitle">Ask ChatGPT</h2>
+      <span></span>
+    </div>
+    <div class="sheet-body">
+      <div class="field">
+        <label class="label" for="askMood">In the mood for <span class="opt">optional</span></label>
+        <input id="askMood" type="text" data-tp="moodPh" placeholder="e.g. short comedies, something like Dark" autocomplete="off" enterkeyhint="go">
+      </div>
+      <div class="field">
+        <span class="label">How many</span>
+        <div class="seg seg-sm" id="askCount" role="group" aria-label="Number of recommendations">
+          <button type="button" data-count="5">5</button>
+          <button type="button" data-count="10">10</button>
+          <button type="button" data-count="15">15</button>
+        </div>
+      </div>
+      <div class="stack">
+        <button type="button" class="btn primary" id="askOpen">Open ChatGPT</button>
+        <button type="button" class="btn" id="askCopy">Copy prompt instead</button>
+      </div>
+      <details class="preview">
+        <summary>Preview prompt</summary>
+        <pre id="askPreview"></pre>
+      </details>
+      <div class="block">
+        <p class="muted small" data-t="askBack"></p>
+        <button type="button" class="btn ghost" id="askToRecs">Paste recommendations</button>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- Paste recommendations sheet -->
+  <dialog id="recsSheet" class="sheet">
+    <div class="sheet-head">
+      <button type="button" class="link" data-close>Cancel</button>
+      <h2 id="recsTitle">Add to watchlist</h2>
+      <span></span>
+    </div>
+    <div class="sheet-body">
+      <p class="muted small">Paste the reply from ChatGPT or Claude. The titles are picked out for you.</p>
+      <textarea id="recsText" class="mono" rows="6" spellcheck="false" data-tp="recsPh" placeholder="1. Dark (2017) — Because you loved Severance…"></textarea>
+      <div id="recsList" class="recs"></div>
+      <button type="button" class="btn primary" id="recsAdd" disabled>Add to watchlist</button>
+    </div>
+  </dialog>
+
+  <!-- Stats sheet -->
+  <dialog id="statsSheet" class="sheet">
+    <div class="sheet-head">
+      <span></span>
+      <h2>Stats</h2>
+      <button type="button" class="link strong" data-close>Done</button>
+    </div>
+    <div class="sheet-body" id="statsBody"></div>
+  </dialog>
+
+  <!-- Import / export sheet -->
+  <dialog id="dataSheet" class="sheet">
+    <div class="sheet-head">
+      <span></span>
+      <h2>Import &amp; export</h2>
+      <button type="button" class="link strong" data-close>Done</button>
+    </div>
+    <div class="sheet-body">
+      <section class="block">
+        <h3>Export</h3>
+        <button type="button" class="btn primary" id="toNotes">Send to Notes</button>
+        <div class="btn-row">
+          <button type="button" class="btn" id="copyJson">Copy JSON</button>
+          <button type="button" class="btn" id="saveJson">Save backup file</button>
+        </div>
+        <p class="muted small" id="backupInfo"></p>
+      </section>
+
+      <section class="block">
+        <h3>Import</h3>
+        <p class="muted small" data-t="importHelp"></p>
+        <textarea id="importText" class="mono" rows="7" spellcheck="false" autocapitalize="off" autocorrect="off" data-tp="importEx" placeholder='[
+  { "name": "Severance", "rating": 9, "date": "2024-03" },
+  { "name": "The Wire", "rating": 10, "date": "2015" },
+  { "name": "Riverdale", "rating": 3, "status": "dropped" }
+]'></textarea>
+        <input type="file" id="importFile" accept=".json,.csv,.tsv,.txt,.xml,application/json,text/csv,text/plain,text/xml,application/xml" hidden>
+        <button type="button" class="btn ghost small-btn" id="pickFile">Choose a file…</button>
+        <p id="importPreview" class="small muted" aria-live="polite"></p>
+        <label class="check"><input type="checkbox" id="importReplace"> Replace my current log instead of adding to it</label>
+        <button type="button" class="btn primary" id="importBtn" disabled>Import</button>
+        <button type="button" class="btn ghost small-btn" id="copyFormatPrompt">Copy a prompt that converts any list to JSON</button>
+      </section>
+
+      <section class="block">
+        <h3 data-t="coversTitle">Posters</h3>
+        <label class="check"><input type="checkbox" id="postersToggle"> <span data-t="coversToggle">Show posters &amp; name suggestions</span></label>
+        <label class="check" id="ratingFilterRow" hidden><input type="checkbox" id="ratingFilterToggle"> Filter suggestions by content rating</label>
+        <p class="muted small" data-t="coversHelp"></p>
+        <button type="button" class="btn" id="findPosters">Find missing posters</button>
+      </section>
+
+      <section class="block">
+        <button type="button" class="btn danger" id="eraseAll">Erase everything</button>
+        <p class="muted small center">No accounts. Nothing leaves your device unless you export it.</p>
+      </section>
+    </div>
+  </dialog>
+
+  <div id="menuScrim" class="menu-scrim" hidden></div>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"><span class="toast-msg"></span><button type="button" class="toast-action" hidden></button></div>
+
+  <script src="app.js"></script>
+</body>
+</html>
