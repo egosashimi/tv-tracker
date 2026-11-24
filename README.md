@@ -1,6 +1,6 @@
 # TV Log
 
-**A private, offline-first log for the TV shows you watch and the manga, manhwa and manhua you read.**
+**A private, offline-first log for the TV shows and movies you watch and the manga, manhwa and manhua you read.**
 
 TV Log is a mobile-first web app built to live on an iPhone home screen. It has no accounts and no server: everything is stored on your device, and nothing leaves it unless you export it. It's plain HTML, CSS and JavaScript with no build step, deployed to GitHub Pages.
 
@@ -29,8 +29,9 @@ TV Log is a mobile-first web app built to live on an iPhone home screen. It has 
 - A **watchlist / reading list** tab, **search**, and sorting by recent, rating or name.
 - **Stats:** rating spread, entries per year, a status breakdown, and top-rated titles.
 
-### Two logs, multiple profiles
-- **TV Log and Manga Log.** Switch between them from the title menu. Both use the same interface; each keeps its own data.
+### Three logs, multiple profiles
+- **TV Log, Movie Log and Manga Log.** Switch between them from the title menu. All three use the same interface; each keeps its own data.
+- **Movies.** The Movie Log records each film's release year, and rewatches are logged as separate entries, so a diary of repeat viewings stays intact.
 - **Manga types.** The Manga Log tags each title as **manga**, **manhwa**, **manhua** or **comic** (webcomics and other comics).
 - **Profiles.** Each log can have several profiles, e.g. *Manhwa* and *Manga*. Each profile has its own list, settings and backups.
 
@@ -41,12 +42,13 @@ TV Log is a mobile-first web app built to live on an iPhone home screen. It has 
 
 ### Covers and title suggestions
 - **TV Log:** posters and suggestions come from [TVmaze](https://www.tvmaze.com/api).
+- **Movie Log:** uses [TMDB](https://www.themoviedb.org) if you add your own free API key in settings (stored only on your device), plus [Wikipedia](https://en.wikipedia.org), which needs no key. The release year is used to tell remakes apart.
 - **Manga Log:** queries [AniList](https://anilist.co), [Kitsu](https://kitsu.app) and [MyAnimeList](https://myanimelist.net) (via [Jikan](https://jikan.moe)) in parallel and merges the results. No single database covers every manhwa, manhua and webcomic.
 - **Fan translations still match.** Titles are matched against every database's alternate titles. For example, *Return of the Mount Hua Sect* finds *Return of the Blossoming Blade*.
 - **Only the title you look up is sent.** Lookups can be turned off, and an optional content-rating filter is available.
 
 ### Import and export
-- **Import:** JSON, CSV (including IMDb ratings exports and episode-level exports such as TV Time), MyAnimeList XML exports, text exported to Notes, or one title per line.
+- **Import:** JSON, CSV (including Letterboxd exports, IMDb ratings exports and episode-level exports such as TV Time), MyAnimeList XML exports, text exported to Notes, or one title per line.
 - **Export:** **Send to Notes** through the iOS share sheet, **Copy JSON**, or **Save backup file**. A reminder appears when a backup is overdue.
 
 ### App experience
@@ -90,7 +92,16 @@ The importer is deliberately forgiving. In JSON, only `name` is required:
 ]
 ```
 
-In the Manga Log, entries can also include `"type"` (`manga`, `manhwa`, `manhua` or `comic`) and `"progress"` (e.g. `"Ch. 120"`).
+In the Manga Log, entries can also include `"type"` (`manga`, `manhwa`, `manhua` or `comic`) and `"progress"` (e.g. `"Ch. 120"`). In the Movie Log, `"year"` is the release year and `"rewatch": true` marks a rewatch.
+
+**Letterboxd:** Letterboxd's exports (diary, reviews, ratings, watched and watchlist) import as they are, as CSV files or pasted from a spreadsheet:
+- Watched Date is used as the date watched.
+- Star ratings are converted to a score out of 10 (4.5★ becomes 9).
+- Reviews become notes, and the rewatch flag is kept.
+- Unused columns, such as the Letterboxd URI and tags, are ignored.
+- A file named like `watchlist.csv` goes straight to the watchlist.
+
+**IMDb:** in the Movie Log, an IMDb ratings export keeps the movies and skips TV series and episodes. The TV Log does the opposite.
 
 | Field  | Accepted values |
 | ------ | --------------- |
@@ -104,7 +115,8 @@ The importer also accepts `{ "shows": [...] }` wrappers, Markdown code fences, t
 ## Privacy
 
 - **Stored on your device.** All data lives in the browser's local storage. There are no accounts, analytics or tracking.
-- **What goes out:** network requests are only made to look up titles (TVmaze, AniList, Kitsu and Jikan), and only the searched title is sent. Turning off covers in settings disables these lookups.
+- **What goes out:** network requests are only made to look up titles (TVmaze, TMDB, Wikipedia, AniList, Kitsu and Jikan), and only the searched title is sent. Turning off covers in settings disables these lookups.
+- **API keys:** an optional TMDB key is kept only in the browser's local storage on your device. It is never part of the repository or of any export.
 - **Recommendations:** your list is only shared when you tap **Ask ChatGPT** or **Ask Claude**. That opens the service in a new tab with your list in a prefilled prompt; the service may send it straight away.
 
 ## Project structure
@@ -121,4 +133,6 @@ The importer also accepts `{ "shows": [...] }` wrappers, Markdown code fences, t
 
 ## Acknowledgements
 
-Title data and cover images are provided by [TVmaze](https://www.tvmaze.com), [AniList](https://anilist.co), [Kitsu](https://kitsu.app) and [MyAnimeList](https://myanimelist.net) through [Jikan](https://jikan.moe). Please respect their terms of use and rate limits.
+Title data and cover images are provided by [TVmaze](https://www.tvmaze.com), [TMDB](https://www.themoviedb.org), [Wikipedia](https://en.wikipedia.org), [AniList](https://anilist.co), [Kitsu](https://kitsu.app) and [MyAnimeList](https://myanimelist.net) through [Jikan](https://jikan.moe). Please respect their terms of use and rate limits.
+
+This product uses the TMDB API but is not endorsed or certified by TMDB.

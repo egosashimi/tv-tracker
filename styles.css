@@ -679,3 +679,9 @@ dialog.sheet > form { display: flex; flex-direction: column; min-height: 0; flex
 
 .suggest-note { margin: 0; padding: 12px 14px; font-size: 14px; color: var(--muted); }
 .suggest button + .suggest-note { border-top: 1px solid var(--line); }
+
+/* ---------- Movie Log ---------- */
+.row-year { color: var(--muted); font-weight: 400; font-size: 15px; margin-left: 2px; font-variant-numeric: tabular-nums; }
+.release-row { display: flex; gap: 10px; align-items: center; }
+.release-row input { flex: 1; min-width: 0; }
+.release-row .chip { height: 46px; border-radius: 12px; padding: 0 18px; }

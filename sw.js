@@ -1,6 +1,6 @@
 // Network-first for the app itself (always fresh when online, still opens offline),
-// cache-first for TVmaze posters and AniList/Kitsu/MyAnimeList covers so they show up offline too.
-const CACHE = 'tvlog-v4';
+// cache-first for TVmaze/TMDB/Wikipedia posters and AniList/Kitsu/MyAnimeList covers so they show up offline too.
+const CACHE = 'tvlog-v5';
 const POSTERS = 'tvlog-posters';
 const ASSETS = [
   './',
@@ -32,7 +32,7 @@ self.addEventListener('fetch', (e) => {
   if (req.method !== 'GET') return;
   const url = new URL(req.url);
 
-  if (['static.tvmaze.com', 's4.anilist.co', 'media.kitsu.app', 'cdn.myanimelist.net'].includes(url.hostname)) {
+  if (['static.tvmaze.com', 's4.anilist.co', 'media.kitsu.app', 'cdn.myanimelist.net', 'image.tmdb.org', 'upload.wikimedia.org', 'thumb.wikimedia.org'].includes(url.hostname)) {
     e.respondWith(
       caches.open(POSTERS).then(async (c) => {
         const hit = await c.match(req);

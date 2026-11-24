@@ -94,6 +94,42 @@ const MODES = {
       format: '1. Title (Year, Manga/Manhwa/Manhua/Comic) — one sentence on why I’d like it, referencing titles from my list',
     },
   },
+  movie: {
+    key: 'movie', title: 'Movie Log', menuSub: 'Movies',
+    store: 'movielog:v1', prefsKey: 'movielog:prefs', file: 'movie-log',
+    noun: 'movie', nouns: 'movies', item: 'Movie',
+    verbPast: 'watched', verbing: 'Watching', dateLabel: 'Watched', finishedLabel: 'Watched',
+    listName: 'Watchlist', wantLabel: 'Want to watch', toWhat: 'to watch',
+    progressLabel: 'Seasons', progressPh: '', progressWord: 'seasons',
+    namePh: 'e.g. Chungking Express',
+    profilePh: 'e.g. Film club, or Horror',
+    moodPh: 'e.g. something slow and beautiful, like Wong Kar-wai',
+    recsPh: '1. In the Mood for Love (2000) — Because you loved Chungking Express…',
+    emptyText: 'Tap + to log a movie, or bring in a list you already have: a Letterboxd export, an IMDb ratings CSV, JSON, or one movie per line.',
+    emptyLog: 'No movies logged yet. Tap <strong>+</strong> to log one.',
+    emptyList: 'Nothing on your watchlist yet. Ask ChatGPT or Claude for ideas, then paste the reply here. You can also tap <strong>+</strong>.',
+    importHelp: 'Paste or pick a file. Letterboxd exports (diary, reviews, ratings, watched and watchlist CSVs) and IMDb ratings CSVs work as they are, as do JSON, a list you sent to Notes, or one movie per line. Letterboxd star ratings become a score out of 10, and a file named watchlist goes straight to your watchlist.',
+    importEx: 'Date\tName\tYear\tLetterboxd URI\tRating\tRewatch\tReview\tTags\tWatched Date\n2021-04-29\tChungking Express\t1994\thttps://boxd.it/…\t5\tYes\tWhat a film\t\t2021-04-28',
+    coversTitle: 'Posters', coverWord: 'poster', coversToggle: 'Show posters & name suggestions',
+    coversHelp: 'Looks up movies on TMDB if you add a key below, otherwise on Wikipedia. Only the title you look up is sent; your log stays on this device.',
+    lookupName: 'TMDB or Wikipedia', lookupDelay: 600,
+    askBack: 'Got an answer back? Copy the reply, then add the picks to your watchlist.',
+    statsYear: 'Movies by year watched',
+    hints: {
+      finished: 'You’ve seen it.',
+      watching: 'Partway through.',
+      paused: 'Stopped partway, not because you disliked it. You plan to finish it.',
+      dropped: 'Started it and didn’t like it. Recommendations will steer away from movies like this.',
+      want: 'On your watchlist. It won’t be recommended to you again.',
+    },
+    prompt: {
+      intro: 'I keep a log of the movies I’ve watched. Ratings are my own, out of 10 (10 = loved it).',
+      current: 'Currently watching',
+      list: 'Already on my watchlist (don’t recommend these)',
+      ask: (n) => `Based on my taste, recommend ${n} movies I haven’t seen yet. Lean toward what I rated highly, steer away from what I rated low or dropped, and weigh my recent viewing a bit more. Include a couple of lesser-known picks. Don’t recommend anything listed above.`,
+      format: '1. Title (Year) — one sentence on why I’d like it, referencing movies from my list',
+    },
+  },
 };
 
 function loadMode() {
@@ -103,7 +139,7 @@ function loadMode() {
 
 let M = MODES[loadMode()];
 
-const statusLabel = (st) => ({ finished: 'Finished', watching: M.verbing, paused: 'Paused', dropped: 'Dropped', want: M.wantLabel }[st]);
+const statusLabel = (st) => ({ finished: M.finishedLabel || 'Finished', watching: M.verbing, paused: 'Paused', dropped: 'Dropped', want: M.wantLabel }[st]);
 const countNoun = (n) => `${n} ${n === 1 ? M.noun : M.nouns}`;
 
 /* ---------------- Profiles ----------------
@@ -158,7 +194,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 function migrate(s) {
   return {
-    rating: null, date: null, seasons: '', note: '', tv: null, kind: null,
+    rating: null, date: null, seasons: '', note: '', tv: null, kind: null, rewatch: false,
     ...s,
     status: STATUS_ORDER.includes(s.status) ? s.status : 'finished',
   };
@@ -435,7 +471,7 @@ function pick(obj, keys) {
 
 const NAME_KEYS = ['name', 'title', 'mangatitle', 'seriestitle', 'show', 'showname', 'showtitle', 'series', 'seriesname', 'tvshow', 'tvshowname', 'program', 'programme'];
 const RATING_KEYS = ['rating', 'yourrating', 'myrating', 'score', 'myscore', 'stars', 'rate', 'grade'];
-const DATE_KEYS = ['date', 'watched', 'watcheddate', 'datewatched', 'watchedon', 'when', 'period', 'dates', 'watchdate', 'finished', 'finishedon', 'completed', 'lastwatchedat', 'watchedat', 'seenat', 'daterated', 'ratedat', 'time', 'yearwatched', 'year', 'updatedat'];
+const DATE_KEYS = ['watcheddate', 'datewatched', 'watchedon', 'date', 'watched', 'when', 'period', 'dates', 'watchdate', 'finished', 'finishedon', 'completed', 'lastwatchedat', 'watchedat', 'seenat', 'daterated', 'ratedat', 'time', 'yearwatched', 'year', 'updatedat'];
 const STATUS_KEYS = ['status', 'state', 'watchstatus', 'mystatus', 'liststatus'];
 
 function extractJSON(text) {
@@ -458,7 +494,7 @@ function toItems(data) {
   if (Array.isArray(data)) return data;
   if (data && typeof data === 'object') {
     for (const k of Object.keys(data)) {
-      if (Array.isArray(data[k]) && ['shows', 'tvshows', 'tv', 'items', 'data', 'entries', 'list', 'log', 'series', 'watched'].includes(normKey(k))) return data[k];
+      if (Array.isArray(data[k]) && ['shows', 'tvshows', 'tv', 'movies', 'films', 'items', 'data', 'entries', 'list', 'log', 'series', 'watched'].includes(normKey(k))) return data[k];
     }
     if (pick(data, NAME_KEYS)) return [data];
     // { "Show name": 9, ... }
@@ -474,8 +510,15 @@ function parseCSV(text, delim) {
   for (let i = 0; i < text.length; i++) {
     const c = text[i];
     if (q) {
-      if (c === '"') { if (text[i + 1] === '"') { field += '"'; i++; } else q = false; }
-      else field += c;
+      if (c === '"') {
+        if (text[i + 1] === '"') { field += '"'; i++; }
+        else {
+          q = false;
+          // A field that merely starts with a quote (common in pasted spreadsheet text) keeps it.
+          const nx = text[i + 1];
+          if (nx !== undefined && nx !== delim && nx !== '\n' && nx !== '\r') field = `"${field}"`;
+        }
+      } else field += c;
     } else if (c === '"' && field === '') q = true;
     else if (c === delim) { row.push(field); field = ''; }
     else if (c === '\n' || c === '\r') {
@@ -498,8 +541,8 @@ function parseTable(text) {
   const header = rows[0].map((h) => h.trim());
   const keys = header.map(normKey);
   if (!keys.some((k) => NAME_KEYS.includes(k))) return null;
-  // IMDb's "Year" is the release year, not when you watched it.
-  const isImdb = keys.includes('const') || keys.includes('yourrating');
+  // IMDb's "Year" is the release year, not when you watched it (the Movie Log keeps it as the release year).
+  const isImdb = (keys.includes('const') || keys.includes('yourrating')) && M.key !== 'movie';
   const objs = rows.slice(1).map((r) => {
     const o = {};
     header.forEach((h, i) => {
@@ -536,6 +579,7 @@ function readPart(p, o) {
   if (/^[“"].*[”"]$/.test(p)) { o.note = p.slice(1, -1); return true; }
   if (/^s\d|\bseasons?\b|\beps?\b|\bepisodes?\b/i.test(p)) { o.seasons = p; return true; }
   if (/^(manga|manhwa|manhua|comic)$/i.test(p)) { o.type = p.toLowerCase(); return true; }
+  if (/^re-?watch(ed)?$/i.test(p)) { o.rewatch = 'yes'; return true; }
   const st = statusHeading(p);
   if (st) { o.status = st; return true; }
   const d = parseWatched(p);
@@ -561,9 +605,9 @@ function parseTextLine(body, status) {
     if (understood && leftover.length && !trial.seasons) trial.seasons = leftover.join(' · ');
     if (understood) Object.assign(o, trial);
   }
-  // "Name (2024)" on a watchlist line → release year.
+  // "Name (2024)" on a watchlist line (or any movie line) → release year.
   const y = o.name.match(/^(.+?)\s*\((\d{4})\)$/);
-  if (y && o.status === 'want') { o.name = y[1]; o.showyear = y[2]; }
+  if (y && (o.status === 'want' || M.key === 'movie')) { o.name = y[1]; o.showyear = y[2]; }
   return o;
 }
 
@@ -614,7 +658,7 @@ function parseXML(text) {
   return nodes.map((n) => Object.fromEntries([...n.children].map((c) => [c.tagName, c.textContent.trim()])));
 }
 
-function normalizeItem(o) {
+function normalizeItem(o, opts = {}) {
   if (typeof o === 'string') o = { name: o };
   if (!o || typeof o !== 'object' || Array.isArray(o)) return null;
 
@@ -625,6 +669,8 @@ function normalizeItem(o) {
     if (M.key === 'manga') {
       if (/novel|anime|movie|film|^tv|ova|ona|music/.test(t)) return { skipType: true };
       kind = parseKind(type);
+    } else if (M.key === 'movie') {
+      if (/series|episode|game|podcast/.test(t)) return { skipType: true };
     } else if (/movie|film|episode|season|short|video|game|podcast|person/.test(t) && !/series|show/.test(t)) return { skipType: true };
   }
   if (M.key === 'manga' && !kind) kind = parseKind(pick(o, ['origin', 'countryoforigin', 'country']));
@@ -638,9 +684,11 @@ function normalizeItem(o) {
   }
   if (name == null || typeof name === 'object' || !String(name).trim()) return null;
 
-  let rating = parseRating(pick(o, RATING_KEYS), pick(o, ['scale', 'outof', 'max', 'maxrating']));
+  // Letterboxd rates out of 5 stars (half stars allowed).
+  const letterboxd = pick(o, ['letterboxduri']) !== undefined;
+  let rating = parseRating(pick(o, RATING_KEYS), pick(o, ['scale', 'outof', 'max', 'maxrating']) || (letterboxd ? 5 : undefined));
   if (rating === 0 && pick(o, ['myscore']) !== undefined) rating = null; // MyAnimeList uses 0 for "not rated"
-  let when = pick(o, DATE_KEYS);
+  let when = pick(o, M.key === 'movie' ? DATE_KEYS.filter((k) => k !== 'year') : DATE_KEYS);
   const from = pick(o, ['from', 'start', 'startdate', 'startyear', 'started', 'startedon', 'mystartdate']);
   const to = pick(o, ['to', 'end', 'enddate', 'endyear', 'ended', 'until', 'myfinishdate']);
   if (when === undefined && (from !== undefined || to !== undefined)) when = { from, to };
@@ -649,11 +697,12 @@ function normalizeItem(o) {
   const status = parseStatus(pick(o, STATUS_KEYS));
   const seasons = readProgress(o);
   const note = pick(o, ['note', 'notes', 'comment', 'comments', 'mycomments', 'review', 'thoughts', 'why', 'reason']);
+  const rewatch = M.key === 'movie' && /^(yes|y|true|1)$/i.test(String(pick(o, ['rewatch', 'rewatched', 'isrewatch']) ?? '').trim());
 
   const tvId = pick(o, ['tvmazeid', 'tvmaze', 'anilistid', 'anilist', 'kitsuid', 'malid']);
   const tvSrc = pick(o, ['kitsuid']) ? 'kitsu' : pick(o, ['malid']) ? 'mal' : pick(o, ['anilistid', 'anilist']) ? 'anilist' : undefined;
   const poster = pick(o, ['poster', 'posterurl', 'image', 'cover', 'coverurl', 'coverimage']);
-  const showYear = pick(o, ['showyear', 'premiered', 'firstaired', 'releaseyear']);
+  const showYear = pick(o, M.key === 'movie' ? ['showyear', 'releaseyear', 'year', 'releasedate', 'premiered'] : ['showyear', 'premiered', 'firstaired', 'releaseyear']);
   if (tvId || typeof poster === 'string' || showYear) {
     tv = { ...(tv || {}) };
     if (+tvId) { tv.id = +tvId; if (tvSrc) tv.src = tvSrc; }
@@ -664,12 +713,14 @@ function normalizeItem(o) {
   return {
     item: {
       name: String(name).trim().replace(/\s+/g, ' '),
-      status: status || 'finished',
+      status: status || opts.defaultStatus || 'finished',
       kind,
-      rating: status === 'want' ? null : rating,
-      date: parsed.value,
+      rating: (status || opts.defaultStatus) === 'want' ? null : rating,
+      // On a watchlist, a date is when it was added, not when it was watched.
+      date: (status || opts.defaultStatus) === 'want' ? null : parsed.value,
       seasons: typeof seasons === 'string' ? seasons.trim() : '',
-      note: typeof note === 'string' ? note.trim().slice(0, 500) : '',
+      note: typeof note === 'string' ? note.trim().slice(0, 2000) : '',
+      rewatch,
       tv,
       _sg: !!status,
     },
@@ -696,7 +747,7 @@ function collapseEpisodes(items) {
   });
 }
 
-function parseImport(text) {
+function parseImport(text, opts = {}) {
   if (!text.trim()) return { empty: true };
   let raw, collapse = false;
   const xml = parseXML(text);
@@ -716,7 +767,7 @@ function parseImport(text) {
   let items = [];
   let skipped = 0, nonTv = 0, badDates = 0;
   for (const r of raw) {
-    const n = normalizeItem(r);
+    const n = normalizeItem(r, opts);
     if (!n) { skipped++; continue; }
     if (n.skipType) { nonTv++; continue; }
     if (n.badDate) badDates++;
@@ -752,6 +803,7 @@ function mergeImport(items, replace) {
       if (it.seasons) set('seasons', it.seasons);
       if (it.note) set('note', it.note);
       if (it.kind && !ex.kind) set('kind', it.kind);
+      if (it.rewatch && !ex.rewatch) set('rewatch', true);
       if (it.tv && !(ex.tv && ex.tv.id)) { ex.tv = { ...(ex.tv || {}), ...it.tv }; changed = true; }
       changed ? updated++ : same++;
     } else {
@@ -764,6 +816,13 @@ function mergeImport(items, replace) {
 
 function exportData() {
   return sorted(shows, 'recent').map((s) => {
+    if (M.key === 'movie') {
+      const m = { name: s.name, year: (s.tv && s.tv.year) || null, status: s.status, rating: s.rating ?? null, date: s.date ?? null };
+      if (s.rewatch) m.rewatch = true;
+      if (s.note) m.note = s.note;
+      if (s.tv && s.tv.poster) m.poster = s.tv.poster;
+      return m;
+    }
     const manga = M.key === 'manga';
     const o = { name: s.name };
     if (manga) o.type = s.kind || null;
@@ -784,20 +843,39 @@ const oneLine = (s) => s.replace(/\s+/g, ' ').trim();
 function promptLine(s) {
   const bits = [];
   if (s.status !== 'want') bits.push(s.rating != null ? `${fmtRating(s.rating)}/10` : 'not rated');
-  const w = fmtWatched(s.date);
-  if (w) bits.push(`${M.verbPast} ${w}`);
+  const w = s.status === 'want' ? '' : fmtWatched(s.date);
+  if (w) bits.push(`${s._times > 1 ? 'last ' : ''}${M.verbPast} ${w}`);
+  if (s._times > 1) bits.push(`${M.verbPast} ${s._times} times`);
+  else if (s.rewatch) bits.push('a rewatch');
   if (s.seasons) bits.push(`${M.progressWord}: ${s.seasons}`);
   let line = `- ${s.name}`;
-  const paren = [s.status === 'want' && s.tv && s.tv.year, M.key === 'manga' && KIND_LABELS[s.kind]].filter(Boolean);
+  const paren = [(s.status === 'want' || M.key === 'movie') && s.tv && s.tv.year, M.key === 'manga' && KIND_LABELS[s.kind]].filter(Boolean);
   if (paren.length) line += ` (${paren.join(', ')})`;
   if (bits.length) line += ` — ${bits.join(', ')}`;
-  if (s.note) line += `. My note: "${oneLine(s.note)}"`;
+  if (s.note) {
+    const note = oneLine(s.note);
+    line += `. My note: “${note.length > 200 ? `${note.slice(0, 197)}…` : note}”`;
+  }
   return line;
+}
+
+/** One prompt line per title: repeat watches (e.g. Letterboxd rewatches) are folded together. */
+function foldRepeats(list) {
+  const map = new Map();
+  for (const s of list) {
+    const k = `${nameKey(s.name)}|${(s.tv && s.tv.year) || ''}`;
+    const g = map.get(k);
+    if (!g) { map.set(k, { ...s, _times: 1 }); continue; }
+    g._times++;
+    if (compareRecent(s, g) < 0) Object.assign(g, { rating: s.rating ?? g.rating, date: s.date, note: s.note || g.note });
+    else if (!g.note && s.note) g.note = s.note;
+  }
+  return [...map.values()];
 }
 
 function buildPrompt({ count = 10, mood = '' } = {}) {
   const sections = [
-    ['finished', 'Finished'],
+    ['finished', statusLabel('finished')],
     ['watching', M.prompt.current],
     ['paused', 'Paused (I stopped for now, but NOT because I disliked it. I plan to go back)'],
     ['dropped', 'Dropped (I tried these and quit because I didn’t like them. Treat them as dislikes)'],
@@ -805,7 +883,7 @@ function buildPrompt({ count = 10, mood = '' } = {}) {
   ];
   const out = [M.prompt.intro, ''];
   for (const [st, title] of sections) {
-    const list = sorted(shows.filter((s) => s.status === st), st === 'want' ? 'recent' : 'rating');
+    const list = sorted(foldRepeats(shows.filter((s) => s.status === st)), st === 'want' ? 'recent' : 'rating');
     if (list.length) out.push(`${title}:`, ...list.map(promptLine), '');
   }
   if (mood.trim()) out.push(`Right now I’m in the mood for: ${oneLine(mood)}`, '');
@@ -830,11 +908,12 @@ function buildNotesText() {
       const bits = [];
       if (st !== 'want') bits.push(s.rating != null ? `${fmtRating(s.rating)}/10` : 'not rated');
       if (M.key === 'manga' && s.kind) bits.push(KIND_LABELS[s.kind]);
+      if (M.key === 'movie' && s.rewatch) bits.push('Rewatch');
       const w = fmtWatched(s.date);
       if (w) bits.push(w);
       if (s.seasons) bits.push(s.seasons);
       if (s.note) bits.push(`“${oneLine(s.note)}”`);
-      const name = st === 'want' && s.tv && s.tv.year ? `${s.name} (${s.tv.year})` : s.name;
+      const name = (st === 'want' || M.key === 'movie') && s.tv && s.tv.year ? `${s.name} (${s.tv.year})` : s.name;
       lines.push(`• ${name}${bits.length ? ' — ' + bits.join(' · ') : ''}`);
     }
   }
@@ -1034,6 +1113,85 @@ async function jikanSearch(q, signal, retry = true) {
 
 const MANGA_SOURCES = [anilistSearch, kitsuSearch, jikanSearch];
 
+/* Movie lookups: TMDB when you've added your own API key (kept only on this device),
+   plus Wikipedia, which needs no key. */
+const TMDB = 'https://api.themoviedb.org/3';
+const TMDB_IMG = 'https://image.tmdb.org/t/p/w185';
+const TMDB_KEY = 'tmdb:key';
+const WIKI = 'https://en.wikipedia.org/w/api.php';
+
+function tmdbKey() {
+  try { return (localStorage.getItem(TMDB_KEY) || '').trim(); } catch (_) { return ''; }
+}
+
+async function tmdbSearch(q, signal, retry = true) {
+  const key = tmdbKey();
+  if (!key) return [];
+  const bearer = key.length > 40; // v4 read access tokens are long; v3 API keys are 32 characters
+  const params = new URLSearchParams({ query: q });
+  if (!bearer) params.set('api_key', key);
+  const r = await fetch(`${TMDB}/search/movie?${params}`, { signal, headers: bearer ? { Authorization: `Bearer ${key}` } : {} });
+  if (r.status === 429 && retry) { await sleep(1500); return tmdbSearch(q, signal, false); }
+  if (!r.ok) throw new Error(`TMDB ${r.status}`);
+  const j = await r.json();
+  return ((j && j.results) || []).slice(0, 8).map((m) => result('tmdb', {
+    id: m.id,
+    name: m.title,
+    alt: [m.original_title],
+    year: (m.release_date && +m.release_date.slice(0, 4)) || null,
+    poster: m.poster_path ? TMDB_IMG + m.poster_path : null,
+    kind: null,
+    network: m.original_title && m.original_title !== m.title ? m.original_title : '',
+  }));
+}
+
+// "1994 Hong Kong film by Wong Kar-wai" is a film; "American film director" is not.
+const FILM_DESC = /\b(film|movie|documentary)\b(?!\s+(director|studio|festival|series|producer|critic|company|editor|score|award|franchise|character|distributor|genre|industry|school|magazine|actor|actress|maker|composer|scholar|historian)s?\b)/i;
+const isFilmPage = (p) => (!!p.description && FILM_DESC.test(p.description) && !/\bborn\b|\(\s*\d{4}\s*[–-]/.test(p.description))
+  || /\((?:[^()]*\s)?film\)$/i.test(p.title);
+
+async function wikiQuery(params, signal, retry) {
+  const r = await fetch(`${WIKI}?${new URLSearchParams({ action: 'query', format: 'json', origin: '*', redirects: '1', prop: 'pageimages|description', piprop: 'thumbnail', pithumbsize: '200', pilicense: 'any', ...params })}`, { signal });
+  if (r.status === 429 && retry) { await sleep(3000); return wikiQuery(params, signal, false); }
+  if (!r.ok) throw new Error(`Wikipedia ${r.status}`);
+  const j = await r.json();
+  return Object.values((j && j.query && j.query.pages) || {}).sort((a, b) => a.index - b.index);
+}
+
+async function wikiFilmSearch(q, signal, retry = true, year) {
+  // Full-text search finds the film from a few words; while typing, a title-prefix search also
+  // catches half-typed titles ("chungking expr"). A known release year narrows the full-text search.
+  const searches = [wikiQuery({ generator: 'search', gsrsearch: `${q}${year ? ` ${year}` : ''} film`, gsrlimit: '10', gsrnamespace: '0' }, signal, retry)];
+  if (!year) searches.unshift(wikiQuery({ generator: 'prefixsearch', gpssearch: q, gpslimit: '15', gpsnamespace: '0' }, signal, retry).catch(() => []));
+  const settled = await Promise.allSettled(searches);
+  if (!settled.some((x) => x.status === 'fulfilled' && x.value.length)) {
+    const failed = settled.find((x) => x.status === 'rejected');
+    if (failed) throw failed.reason;
+  }
+  const seen = new Set();
+  const pages = settled.flatMap((x) => (x.status === 'fulfilled' ? x.value : [])).filter((pg) => !seen.has(pg.pageid) && seen.add(pg.pageid));
+  return pages.filter(isFilmPage).slice(0, 8).map((pg) => {
+    const desc = pg.description || '';
+    const ym = desc.match(/\b(18[89]\d|19\d\d|20\d\d)\b/) || pg.title.match(/\((\d{4})[^)]*\)$/);
+    return result('wiki', {
+      id: pg.pageid,
+      name: pg.title.replace(/\s*\((?:[^()]*\s)?film\)$/i, ''),
+      alt: [pg.title],
+      year: ym ? +ym[1] : null,
+      poster: (pg.thumbnail && pg.thumbnail.source) || null,
+      kind: null,
+      network: desc.replace(/^\d{4}\s+/, ''),
+    });
+  });
+}
+
+/** The databases each log searches, in order of preference. */
+function lookupSources() {
+  if (M.key === 'manga') return MANGA_SOURCES;
+  if (M.key === 'movie') return tmdbKey() ? [tmdbSearch, wikiFilmSearch] : [wikiFilmSearch];
+  return [tvSearch];
+}
+
 const looseKey = (n) => String(n).toLowerCase().replace(/^the\s+/, '').replace(/[^a-z0-9]/g, '');
 const namesOf = (r) => [r.name, ...(r.alt || [])].map(looseKey).filter((k) => k.length > 1);
 
@@ -1078,9 +1236,9 @@ const searchCache = new Map(); // finished suggestion searches, so retyping a ti
  * so a slow or unreachable source never holds up the others. Slow sources time out.
  */
 async function streamSearch(q, signal, onUpdate) {
-  const key = `${M.key}|${prefs.ratingFilter ? 1 : 0}|${q.toLowerCase()}`;
-  if (searchCache.has(key)) { onUpdate(searchCache.get(key), true); return; }
-  const sources = M.key === 'manga' ? MANGA_SOURCES : [tvSearch];
+  const key = `${M.key}|${prefs.ratingFilter ? 1 : 0}|${tmdbKey() ? 1 : 0}|${q.toLowerCase()}`;
+  if (searchCache.has(key)) { onUpdate(searchCache.get(key), true, true); return; }
+  const sources = lookupSources();
   const lists = new Array(sources.length).fill(null);
   let pending = sources.length, anyOk = false;
   await Promise.all(sources.map(async (fn, i) => {
@@ -1089,32 +1247,32 @@ async function streamSearch(q, signal, onUpdate) {
     catch (_) { lists[i] = []; }
     finally { t.clear(); pending--; }
     if (signal && signal.aborted) return;
-    const merged = M.key === 'manga' ? mergeResults(lists.filter(Boolean), q) : lists[i];
+    const merged = mergeResults(lists.filter(Boolean), q); // also puts title matches first
     if (pending === 0 && anyOk) {
       searchCache.set(key, merged);
       if (searchCache.size > 60) searchCache.delete(searchCache.keys().next().value);
     }
-    onUpdate(merged, pending === 0);
+    onUpdate(merged, pending === 0, anyOk);
   }));
 }
 
-async function mangaSearchAll(q, signal) {
-  const settled = await Promise.allSettled(MANGA_SOURCES.map((fn) => fn(q, signal)));
+async function searchAll(q, signal) {
+  const settled = await Promise.allSettled(lookupSources().map((fn) => fn(q, signal)));
   if (signal && signal.aborted) throw new DOMException('Aborted', 'AbortError');
   const ok = settled.filter((x) => x.status === 'fulfilled').map((x) => x.value);
   if (!ok.length) throw settled[0].reason;
   return mergeResults(ok, q);
 }
 
-const lookupSearch = (q, signal) => (M.key === 'manga' ? mangaSearchAll(q, signal) : tvSearch(q, signal));
+const lookupSearch = (q, signal) => (M.key === 'tv' ? tvSearch(q, signal) : searchAll(q, signal));
 
 /** Best cover match for a logged title: try each source in turn, stop at the first good match. */
 async function findMatch(name, year, kind) {
-  if (M.key !== 'manga') return bestMatch(await tvSearch(name), name, year);
+  if (M.key === 'tv') return bestMatch(await tvSearch(name), name, year);
   let lastErr = null, anyOk = false;
-  for (const fn of MANGA_SOURCES) {
+  for (const fn of lookupSources()) {
     try {
-      const best = bestMatch(await fn(name), name, year, kind);
+      const best = bestMatch(await fn(name, undefined, true, year), name, year, kind);
       anyOk = true;
       if (best) return best;
     } catch (e) { lastErr = e; }
@@ -1152,6 +1310,11 @@ function bestMatch(results, name, year, kind) {
     const sameKind = pool.filter((r) => r.kind === kind);
     if (sameKind.length) pool = sameKind;
   }
+  // Movies share titles all the time (remakes): when the release year is known, it has to agree.
+  if (M.key === 'movie' && year) {
+    pool = pool.filter((r) => !r.year || Math.abs(r.year - year) <= 1);
+    if (!pool.length) return null;
+  }
   return (year && pool.find((r) => r.year === year)) || pool[0];
 }
 
@@ -1160,20 +1323,26 @@ let posterRun = null;
 async function findPosters(manual = false) {
   if (!prefs.posters) return;
   if (posterRun) { if (manual) toast(`Already looking for ${M.coverWord}s…`); return; }
-  const todo = shows.filter((s) => !(s.tv && (s.tv.id || (s.tv.miss && s.tv.v === LOOKUP_VERSION))));
+  const todo = shows.filter((s) => !(s.tv && (s.tv.id || s.tv.poster || (s.tv.miss && s.tv.v === LOOKUP_VERSION))));
   if (!todo.length) { if (manual) toast(`Every ${M.noun} already has a ${M.coverWord}`); return; }
   const gen = switchGen;
   posterRun = (async () => {
     let found = 0, done = 0;
+    const seen = new Map(); // the same title logged several times (rewatches) is looked up once
     for (const s of todo) {
       while (document.getElementById('showSheet').open && switchGen === gen) await sleep(1000);
       if (!prefs.posters || switchGen !== gen) break;
-      if (manual) toast(`Finding ${M.coverWord}s… ${done + 1} of ${todo.length}`, 4000);
+      const year = s.tv && s.tv.year;
+      const ck = `${nameKey(s.name)}|${year || ''}`;
+      const cached = seen.has(ck);
+      if (manual && !cached) toast(`Finding ${M.coverWord}s… ${done + 1} of ${todo.length}`, 4000);
       try {
-        const best = await findMatch(s.name, s.tv && s.tv.year, s.kind);
+        const best = cached ? seen.get(ck) : await findMatch(s.name, year, s.kind);
+        seen.set(ck, best);
         if (switchGen !== gen) break; // switched logs mid-lookup
         if (best) {
           s.tv = metaOf(best);
+          if (!s.tv.year && year) s.tv.year = year;
           if (best.kind && !s.kind) s.kind = best.kind;
           found++;
         } else s.tv = { ...(s.tv || {}), miss: true, v: LOOKUP_VERSION };
@@ -1183,7 +1352,7 @@ async function findPosters(manual = false) {
       }
       done++;
       if (done % 5 === 0) { saveShows(); render(); }
-      await sleep(M.lookupDelay);
+      if (!cached) await sleep(M.lookupDelay);
     }
     if (switchGen !== gen) return;
     saveShows();
@@ -1274,21 +1443,24 @@ function thumbHTML(s) {
 }
 
 function rowHTML(s) {
+  const movie = M.key === 'movie';
   const bits = M.key === 'manga' && s.kind ? [KIND_LABELS[s.kind]] : [];
   if (s.status === 'want') {
-    if (s.tv && s.tv.year) bits.push(String(s.tv.year));
+    if (!movie && s.tv && s.tv.year) bits.push(String(s.tv.year));
     if (s.note) bits.push(oneLine(s.note));
   } else {
     const when = fmtWatched(s.date);
     if (when) bits.push(when);
     if (s.seasons) bits.push(s.seasons);
   }
-  const tag = ['watching', 'paused', 'dropped'].includes(s.status) ? `<span class="tag tag-${s.status}">${statusLabel(s.status)}</span>` : '';
+  let tag = ['watching', 'paused', 'dropped'].includes(s.status) ? `<span class="tag tag-${s.status}">${statusLabel(s.status)}</span>` : '';
+  if (movie && s.rewatch && s.status !== 'want') tag += '<span class="tag">Rewatch</span>';
+  const year = movie && s.tv && s.tv.year ? ` <span class="row-year">${esc(s.tv.year)}</span>` : '';
   const sub = tag || bits.length ? `<span class="row-when">${tag}${esc(bits.join(' · '))}</span>` : '';
   return `<button type="button" class="row" data-id="${esc(s.id)}">
     ${thumbHTML(s)}
     <span class="row-main">
-      <span class="row-name">${esc(s.name)}</span>
+      <span class="row-name">${esc(s.name)}${year}</span>
       ${sub}
     </span>
     ${s.status === 'want' ? '' : scoreHTML(s.rating)}
@@ -1429,10 +1601,21 @@ $('#kindSeg').addEventListener('click', (e) => {
   if (b) setKind(formKind === b.dataset.kind ? null : b.dataset.kind);
 });
 
+let formRewatch = false;
+
+function setRewatch(v) {
+  formRewatch = !!v;
+  $('#rewatchBtn').setAttribute('aria-pressed', String(formRewatch));
+}
+
+$('#rewatchBtn').addEventListener('click', () => setRewatch(!formRewatch));
+
 function setStatus(st) {
   formStatus = st;
   $$('#statusSeg button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.status === st)));
   $$('[data-hide-want]', showForm).forEach((el) => { el.hidden = st === 'want'; });
+  $('#progressField').hidden = st === 'want' || M.key === 'movie';
+  $('#rewatchBtn').hidden = st === 'want';
   $('#statusHint').textContent = M.hints[st];
   $('#fNote').placeholder = st === 'want' ? 'Why? Who recommended it…' : st === 'dropped' ? 'What put you off?' : 'What you thought, who recommended it…';
 }
@@ -1513,7 +1696,7 @@ function hideSuggest() {
   suggestions = [];
 }
 
-function renderSuggest(list, done) {
+function renderSuggest(list, done, ok = true) {
   suggestions = list.slice(0, 8);
   const rows = suggestions.map((r, i) => `
     <button type="button" role="option" data-i="${i}">
@@ -1522,7 +1705,9 @@ function renderSuggest(list, done) {
     </button>`).join('');
   const status = !done
     ? '<p class="suggest-note">Searching…</p>'
-    : suggestions.length ? '' : '<p class="suggest-note">No matches found. You can still save it as typed.</p>';
+    : suggestions.length ? ''
+      : ok ? '<p class="suggest-note">No matches found. You can still save it as typed.</p>'
+        : '<p class="suggest-note">Couldn’t search right now. You can still save it as typed.</p>';
   $('#suggest').innerHTML = rows + status;
   $('#suggest').hidden = false;
 }
@@ -1537,9 +1722,9 @@ fName.addEventListener('input', () => {
     const ctl = new AbortController();
     suggestCtl = ctl;
     if (!suggestions.length) renderSuggest([], false); // instant feedback while the first source answers
-    streamSearch(q, ctl.signal, (list, done) => {
+    streamSearch(q, ctl.signal, (list, done, ok) => {
       if (ctl.signal.aborted || fName.value.trim() !== q) return;
-      renderSuggest(list, done);
+      renderSuggest(list, done, ok);
     }).catch(() => {});
   }, 300);
 });
@@ -1553,6 +1738,7 @@ $('#suggest').addEventListener('click', (e) => {
   formTv = suggestions[+b.dataset.i];
   fName.value = formTv.name;
   if (formTv.kind) setKind(formTv.kind);
+  if (M.key === 'movie' && formTv.year) $('#fRelease').value = formTv.year;
   hideSuggest();
   renderMatch();
   fName.blur();
@@ -1586,6 +1772,8 @@ function openAdd(status) {
   fillDate(null);
   setDateMode(prefs.dateMode || 'day');
   $('#fSeasons').value = '';
+  $('#fRelease').value = '';
+  setRewatch(false);
   $('#fNote').value = '';
   openSheet(showSheet);
   fName.focus();
@@ -1607,6 +1795,8 @@ function openEdit(id) {
   const mode = fillDate(s.date);
   setDateMode(s.status === 'want' && !s.date ? (prefs.dateMode || 'day') : mode);
   $('#fSeasons').value = s.seasons || '';
+  $('#fRelease').value = (s.tv && s.tv.year) || '';
+  setRewatch(!!s.rewatch);
   $('#fNote').value = s.note || '';
   openSheet(showSheet);
 }
@@ -1623,6 +1813,13 @@ showForm.addEventListener('submit', (e) => {
   // Keep a previous "no match" marker unless the name changed; drop stale matches.
   let tv = formTv && formTv.id ? metaOf(formTv) : null;
   if (!tv && existing && existing.tv && !existing.tv.id && nameKey(existing.name) === nameKey(name)) tv = existing.tv;
+  if (M.key === 'movie') {
+    const ry = parseInt($('#fRelease').value, 10);
+    if (ry >= 1870 && ry <= 2100 && (!tv || tv.year !== ry)) {
+      tv = { ...(tv || {}), year: ry };
+      delete tv.miss; // a corrected year deserves a fresh poster lookup
+    }
+  }
   const data = {
     name,
     status: formStatus,
@@ -1630,7 +1827,8 @@ showForm.addEventListener('submit', (e) => {
     rating: isWant ? null : currentRating,
     date: d.value,
     seasons: isWant ? '' : $('#fSeasons').value.trim(),
-    note: $('#fNote').value.trim().slice(0, 500),
+    note: $('#fNote').value.trim().slice(0, 2000),
+    rewatch: M.key === 'movie' && !isWant && formRewatch,
     tv,
   };
 
@@ -1643,7 +1841,7 @@ showForm.addEventListener('submit', (e) => {
   closeSheet(showSheet);
   render();
   toast(existing ? 'Saved' : isWant ? `Added ${name} to your ${M.listName.toLowerCase()}` : `Logged ${name}`);
-  if (!tv) findPosters();
+  if (!tv || !(tv.id || tv.poster)) findPosters();
 });
 
 $('#deleteBtn').addEventListener('click', () => {
@@ -1808,7 +2006,7 @@ function renderStats() {
   const tiles = [
     ['Logged', logged.length],
     ['Avg rating', all != null ? all.toFixed(1) : '—'],
-    ['Finished', count('finished')],
+    [statusLabel('finished'), count('finished')],
     ['Dropped', count('dropped')],
   ];
 
@@ -1873,11 +2071,13 @@ function openData() {
   $('#postersToggle').checked = !!prefs.posters;
   $('#ratingFilterToggle').checked = !!prefs.ratingFilter;
   $('#ratingFilterRow').hidden = M.key !== 'manga';
+  $('#tmdbRow').hidden = M.key !== 'movie';
+  $('#tmdbKey').value = tmdbKey();
   openSheet(dataSheet);
 }
 
 function updateImportPreview() {
-  const r = parseImport(importText.value);
+  const r = parseImport(importText.value, { defaultStatus: importDefaultStatus });
   pendingImport = null;
   importPreview.className = 'small';
   $('#importBtn').disabled = true;
@@ -1901,7 +2101,9 @@ function updateImportPreview() {
   $('#importBtn').textContent = `Import ${countNoun(n)}`;
 }
 
-importText.addEventListener('input', updateImportPreview);
+// Importing a file named like a watchlist puts everything on the watchlist (e.g. Letterboxd's watchlist.csv).
+let importDefaultStatus = null;
+importText.addEventListener('input', () => { importDefaultStatus = null; updateImportPreview(); });
 
 $('#pickFile').addEventListener('click', () => $('#importFile').click());
 $('#importFile').addEventListener('change', async (e) => {
@@ -1909,6 +2111,7 @@ $('#importFile').addEventListener('change', async (e) => {
   if (!file) return;
   try {
     importText.value = await file.text();
+    importDefaultStatus = /watchlist|watch-list|to-?watch/i.test(file.name) ? 'want' : null;
     updateImportPreview();
   } catch (_) { toast('Couldn’t read that file'); }
   e.target.value = '';
@@ -1922,6 +2125,7 @@ $('#importBtn').addEventListener('click', () => {
   saveShows();
   render();
   importText.value = '';
+  importDefaultStatus = null;
   $('#importReplace').checked = false;
   updateImportPreview();
   closeSheet(dataSheet);
@@ -1988,6 +2192,21 @@ $('#ratingFilterToggle').addEventListener('change', (e) => {
   prefs.ratingFilter = e.target.checked;
   savePrefs();
   toast(prefs.ratingFilter ? 'Content rating filter on' : 'Content rating filter off');
+});
+
+$('#tmdbKey').addEventListener('change', async (e) => {
+  const v = e.target.value.trim();
+  try { if (v) localStorage.setItem(TMDB_KEY, v); else localStorage.removeItem(TMDB_KEY); } catch (_) { /* ignore */ }
+  searchCache.clear();
+  if (!v) { toast('TMDB key removed'); return; }
+  try {
+    await tmdbSearch('Chungking Express');
+    toast('TMDB key works. Looking for missing posters…');
+    shows.forEach((s) => { if (s.tv && s.tv.miss) delete s.tv.miss; });
+    findPosters();
+  } catch (_) {
+    toast('TMDB didn’t accept that key. Check it and try again.', 3600);
+  }
 });
 
 $('#findPosters').addEventListener('click', () => {
@@ -2070,6 +2289,9 @@ function applyModeText() {
   $$('[data-tp]').forEach((el) => { el.placeholder = M[el.dataset.tp]; });
   $('#kindField').hidden = M.key !== 'manga';
   $('#statusSeg [data-status="watching"]').textContent = M.verbing;
+  $('#statusSeg [data-status="finished"]').textContent = statusLabel('finished');
+  $('#releaseField').hidden = M.key !== 'movie';
+  $('#progressField').hidden = M.key === 'movie';
   $('#recsTitle').textContent = `Add to ${M.listName.toLowerCase()}`;
   $('#findPosters').textContent = `Find missing ${M.coverWord}s`;
   $$('#modeMenu [data-mode]').forEach((b) => b.setAttribute('aria-checked', String(b.dataset.mode === M.key)));
